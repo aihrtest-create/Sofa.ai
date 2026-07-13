@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirecting…</title>
+    <script>
+      const repoBase = "/Sofa.ai/";
+      const route = window.location.pathname.startsWith(repoBase)
+        ? window.location.pathname.slice(repoBase.length)
+        : "";
+      window.location.replace(`${repoBase}?route=${encodeURIComponent(route)}`);
+    </script>
+  </head>
+  <body></body>
+</html>
