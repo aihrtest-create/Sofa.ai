@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node server/index.js",
     "build": "vite build",
-    "build:pages": "vite build --base=/Sofa.ai/",
+    "build:pages": "VITE_PAGES_VARIANT=single-shot vite build --base=/Sofa.ai/",
     "start": "NODE_ENV=production node server/index.js",
     "qa:benchmark": "node scripts/qa-model-benchmark.mjs",
     "qa:export": "node scripts/export-preview-qa.mjs",

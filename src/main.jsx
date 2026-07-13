@@ -17,7 +17,8 @@ if (restoredRoute) {
 
 const activePath = restoredRoute || window.location.pathname;
 const normalizedPath = `/${activePath.replace(/^\/+|\/+$/g, "")}`;
-const RootApp = normalizedPath.endsWith("/single-shot") ? SingleShotApp : App;
+const isPagesSingleShot = import.meta.env.VITE_PAGES_VARIANT === "single-shot";
+const RootApp = isPagesSingleShot || normalizedPath.endsWith("/single-shot") ? SingleShotApp : App;
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
