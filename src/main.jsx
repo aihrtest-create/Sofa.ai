@@ -16,7 +16,8 @@ if (restoredRoute) {
 }
 
 const activePath = restoredRoute || window.location.pathname;
-const RootApp = activePath.replace(/\/$/, "").endsWith("/single-shot") ? SingleShotApp : App;
+const normalizedPath = `/${activePath.replace(/^\/+|\/+$/g, "")}`;
+const RootApp = normalizedPath.endsWith("/single-shot") ? SingleShotApp : App;
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
