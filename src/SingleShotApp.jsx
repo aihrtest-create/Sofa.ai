@@ -13,6 +13,7 @@ import {
   Plus,
   Sparkle,
   Trash,
+  WarningCircle,
   X,
 } from "@phosphor-icons/react";
 import heroSofa from "./assets/hero-sofa.png";
@@ -292,7 +293,7 @@ export function SingleShotApp() {
 
     try {
       const response = await fetch(apiUrl("/api/generate-frame"), { method: "POST", body });
-      const data = await response.json();
+      const data = await parseGenerationResponse(response);
       if (!response.ok) throw new Error(data.error || "Модель не завершила выбранный кадр.");
       setResult(data);
       setStatus("done");
@@ -609,6 +610,14 @@ export function SingleShotApp() {
             <strong key={generationPhraseIndex} className="single-progress-phrase">{GENERATION_PHRASES[generationPhraseIndex]}</strong>
             <small>{selectedCamera.label} · {selectedFormat.ratio} · {selectedModel.shortLabel} · {formatElapsed(elapsed)}</small>
           </div>
+        ) : status === "error" ? (
+          <div className="single-stage-error" role="alert">
+            <span><WarningCircle size={28} weight="fill" /></span>
+            <p>Генерация не завершилась</p>
+            <strong>{error || "Не удалось получить ответ от модели."}</strong>
+            <small>{selectedCamera.label} · {selectedFormat.ratio} · {selectedModel.shortLabel}</small>
+            <button type="button" onClick={() => setMobileStep(2)}>Вернуться к настройкам <ArrowLeft size={17} /></button>
+          </div>
         ) : (
           <div className="single-stage-empty">
             <img src={selectedScene.image} alt="" />
@@ -731,4 +740,11 @@ function SingleHeading({ number, title, note }) {
 
 function formatElapsed(seconds) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+async function parseGenerationResponse(response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) return response.json();
+  const text = await response.text();
+  return { error: text.trim() || `Сервер вернул ошибку HTTP ${response.status}.` };
 }

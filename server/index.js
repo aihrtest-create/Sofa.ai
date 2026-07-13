@@ -42,6 +42,7 @@ dotenv.config({ path: path.join(root, ".env"), quiet: true });
 
 const app = express();
 const port = Number(process.env.PORT || 5173);
+const host = String(process.env.HOST || "127.0.0.1");
 const corsOrigins = new Set(
   String(process.env.CORS_ORIGINS || "")
     .split(",")
@@ -312,12 +313,11 @@ app.post("/api/generate-frame", upload.array("images", 6), async (req, res) => {
     });
   } catch (error) {
     logGenerationError("Single frame generation failed", error);
-    const message = String(error?.message ?? "");
-    const fallback = /GEMINI_IMAGE_DATA_MISSING/i.test(message)
-      ? "Gemini не вернул выбранный кадр. Попробуйте повторить или выбрать другую модель."
-      : "Модель не завершила выбранный кадр.";
+    const failure = generationFailureMessage(error, generationModel?.provider);
     return res.status(error?.status >= 400 && error?.status < 600 ? error.status : 502).json({
-      error: openAIErrorMessage(error, fallback),
+      error: failure.message,
+      code: failure.code,
+      provider: generationModel?.provider,
       requestId: openAIRequestId(error),
     });
   }
@@ -1014,8 +1014,8 @@ app.use((error, _req, res, _next) => {
   res.status(400).json({ error: message });
 });
 
-app.listen(port, "127.0.0.1", () => {
-  console.log(`SOFA.SHOT is running at http://127.0.0.1:${port}`);
+app.listen(port, host, () => {
+  console.log(`SOFA.SHOT is running at http://${host}:${port}`);
 });
 
 async function mapWithConcurrency(items, limit, task) {
@@ -1109,6 +1109,29 @@ function openAIErrorMessage(error, fallback) {
   if (error?.status === 401) return "API-ключ недействителен или был отозван.";
   if (error?.status === 429) return "Достигнут лимит API. Проверьте квоту проекта.";
   return fallback;
+}
+
+function generationFailureMessage(error, provider) {
+  const message = String(error?.message ?? "");
+  if (/User location is not supported|unsupported_country_region_territory|Country, region, or territory not supported/i.test(message)) {
+    return {
+      code: "PROVIDER_REGION_UNSUPPORTED",
+      message: "Сервер находится в регионе, который не поддерживает выбранную модель. Генерация временно недоступна.",
+    };
+  }
+  if (/GEMINI_IMAGE_DATA_MISSING/i.test(message)) {
+    return { code: "GEMINI_IMAGE_DATA_MISSING", message: "Gemini не вернул изображение. Повторите запрос или выберите другую модель." };
+  }
+  if (/timed?\s*out|timeout/i.test(message)) {
+    return { code: "GENERATION_TIMEOUT", message: "Модель слишком долго создавала кадр. Повторите попытку." };
+  }
+  if (/connection|fetch failed|network/i.test(message)) {
+    return { code: "GENERATION_NETWORK_ERROR", message: "Соединение с моделью оборвалось. Проверьте интернет и повторите попытку." };
+  }
+  if (provider === "gemini" && error?.status === 400) {
+    return { code: "GEMINI_REQUEST_REJECTED", message: "Gemini отклонил запрос (HTTP 400). Проверьте настройку Gemini на сервере или выберите GPT Image 2." };
+  }
+  return { code: error?.code || "GENERATION_FAILED", message: openAIErrorMessage(error, "Модель не завершила выбранный кадр.") };
 }
 
 function contactSheetErrorMessage(error) {
