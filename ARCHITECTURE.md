@@ -117,7 +117,8 @@ Purpose:
 - Save successful generations and their source references locally so the operator can reopen, download or regenerate them.
 
 Implementation:
-- Multipart fields: `images` (1-6), `scene`, `camera`, `model`, optional `revisionNote` (up to 1000 characters).
+- Multipart fields: `images` (1-6), `scene`, `camera`, `model`, `format`, optional `revisionNote` (up to 1000 characters).
+- Formats use plain-language UI labels with exact ratios: `Горизонтальная` (`16:9`), `Квадрат` (`1:1`) and `Вертикальная` (`9:16`). The server maps them to provider-specific output sizes/aspect ratios.
 - Camera must resolve through `CAMERA_RECIPES`.
 - Each request calls only the selected provider once and returns one JSON result with image, model, scene, cost and QA metadata.
 - `/api/generate-frame` never loads or sends `SCENES.referenceImages`, even if an older client sends `useRoomReferences=true`.
@@ -125,6 +126,8 @@ Implementation:
 - Regeneration always starts from the original product references plus `revisionNote`; it never edits an already generated result.
 - IndexedDB stores the result blob, original product files, primary index, scene, camera, model, note and returned cost. Clearing history removes those saved photos from the current browser.
 - Mobile uses three focused steps: `Фото`, `Съёмка`, `Результат`; desktop keeps the editorial split-screen workspace.
+- Result previews always use `object-fit: contain` and open into a full-screen viewer; generated images must never be cropped by the interface.
+- While a request is running, the result surface cycles through short furniture-studio status phrases while keeping elapsed time, camera, format and model visible.
 - This is an experimental fidelity surface, not a replacement for the main customer workflow yet.
 
 ### Preview Contact Sheet

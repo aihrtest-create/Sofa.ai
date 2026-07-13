@@ -92,6 +92,18 @@ test("revision note is secondary to product fidelity locks", () => {
   assert.match(prompt, /original user product references/i);
 });
 
+test("single-shot output format keeps the complete sofa inside the frame", () => {
+  const prompt = buildSofaPrompt({
+    sceneId: "studio",
+    angle: CAMERA_RECIPES.hero,
+    outputFormat: { label: "Вертикальная", ratio: "9:16" },
+  });
+  assert.match(prompt, /OUTPUT FORMAT/i);
+  assert.match(prompt, /Вертикальная 9:16/i);
+  assert.match(prompt, /complete sofa comfortably inside the frame/i);
+  assert.match(prompt, /do not crop its arms, legs, back, or footprint/i);
+});
+
 test("ugc herringbone living prompt preserves room identity and reference roles", () => {
   const prompt = buildSofaPrompt({
     sceneId: "ugcHerringboneLiving",

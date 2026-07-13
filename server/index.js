@@ -12,6 +12,7 @@ import {
   findGenerationModel,
 } from "../shared/generationModels.js";
 import { findShotSet } from "../shared/shotSets.js";
+import { DEFAULT_IMAGE_FORMAT_ID, findImageFormat } from "../shared/imageFormats.js";
 import {
   CAMERA_RECIPES,
   SCENES,
@@ -190,6 +191,7 @@ async function generateOpenAIImage({
   prompt,
   outputCompression,
   inputFidelity = null,
+  size = "1536x1024",
 }) {
   const response = await client.images.edit(
     {
@@ -197,7 +199,7 @@ async function generateOpenAIImage({
       image: imageInputs,
       prompt,
       ...(inputFidelity ? { input_fidelity: inputFidelity } : {}),
-      size: "1536x1024",
+      size,
       quality: "medium",
       output_format: "jpeg",
       output_compression: outputCompression,
@@ -231,6 +233,7 @@ app.post("/api/generate-frame", upload.array("images", 6), async (req, res) => {
   const files = req.files ?? [];
   const sceneId = String(req.body.scene ?? "studio");
   const cameraId = String(req.body.camera ?? "hero");
+  const imageFormat = findImageFormat(String(req.body.format ?? DEFAULT_IMAGE_FORMAT_ID));
   const generationModel = selectedGenerationModel(req.body.model);
   const modelError = validateGenerationModel(generationModel);
   const scene = SCENES[sceneId];
@@ -242,6 +245,7 @@ app.post("/api/generate-frame", upload.array("images", 6), async (req, res) => {
   if (files.reduce((sum, file) => sum + file.size, 0) > 50 * 1024 * 1024) return res.status(400).json({ error: "Общий размер референсов должен быть не больше 50 МБ." });
   if (!scene) return res.status(400).json({ error: "Выберите доступное помещение." });
   if (!camera) return res.status(400).json({ error: "Выберите доступный ракурс." });
+  if (!imageFormat) return res.status(400).json({ error: "Выберите доступный формат фотографии." });
   if (revisionNote.length > 1_000) return res.status(400).json({ error: "Уточнение должно быть не длиннее 1000 символов." });
 
   try {
@@ -253,6 +257,7 @@ app.post("/api/generate-frame", upload.array("images", 6), async (req, res) => {
       roomReferenceCount: 0,
       textOnlyBackground: true,
       revisionNote,
+      outputFormat: imageFormat,
     });
     const openai = generationModel.provider === "openai" ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
     const gemini = generationModel.provider === "gemini" ? createGeminiClient() : null;
@@ -272,7 +277,7 @@ app.post("/api/generate-frame", upload.array("images", 6), async (req, res) => {
           model: generationModel,
           prompt,
           imageParts: productParts,
-          aspectRatio: "3:2",
+          aspectRatio: imageFormat.geminiAspectRatio,
         })
       : await generateOpenAIImage({
           client: openai,
@@ -280,6 +285,7 @@ app.post("/api/generate-frame", upload.array("images", 6), async (req, res) => {
           imageInputs: productImages,
           prompt,
           outputCompression: 94,
+          size: imageFormat.openaiSize,
         });
 
     return res.json({
@@ -292,6 +298,7 @@ app.post("/api/generate-frame", upload.array("images", 6), async (req, res) => {
       modelName: generationModel.label,
       provider: generationModel.provider,
       quality: generationModel.quality,
+      format: { id: imageFormat.id, label: imageFormat.label, ratio: imageFormat.ratio },
       useRoomReferences: false,
       revisionNote,
       cost: toCostPayload(generatedImage.cost, generationModel),
@@ -300,6 +307,7 @@ app.post("/api/generate-frame", upload.array("images", 6), async (req, res) => {
         prompt,
         productReferenceCount: files.length,
         roomReferenceCount: 0,
+        format: imageFormat,
       },
     });
   } catch (error) {

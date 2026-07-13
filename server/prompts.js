@@ -143,6 +143,7 @@ export function buildSofaPrompt({
   roomReferenceCount = 0,
   textOnlyBackground = false,
   revisionNote = "",
+  outputFormat = null,
 }) {
   const scene = SCENES[sceneId];
   if (!scene) throw new Error(`Unknown scene: ${sceneId}`);
@@ -162,6 +163,9 @@ export function buildSofaPrompt({
   const revisionInstruction = revisionNote
     ? `OPERATOR CORRECTION — ${revisionNote}\nApply this correction to the new photograph, but never let it override PRODUCT IDENTITY, SECTION GEOMETRY, LEG AND FOOTPRINT, or MATERIAL CONTINUITY locks. Generate from the original user product references, not from a previous generated result.`
     : null;
+  const formatInstruction = outputFormat
+    ? `OUTPUT FORMAT — compose and render the final photograph in ${outputFormat.label} ${outputFormat.ratio} format. Keep the complete sofa comfortably inside the frame with intentional breathing room; do not crop its arms, legs, back, or footprint to fill the canvas.`
+    : null;
   return [
     isUgcScene
       ? `Create one realistic iPhone/UGC apartment photograph of the sofa from the user-uploaded product reference images.`
@@ -176,6 +180,7 @@ export function buildSofaPrompt({
     anchorInstruction,
     backgroundInstruction,
     revisionInstruction,
+    formatInstruction,
     `ENVIRONMENT — ${scene.name}: ${scenePrompt}`,
     `CAMERA AND COMPOSITION — ${angle.label}: ${anglePrompt}`,
     REALISM_LOCK,

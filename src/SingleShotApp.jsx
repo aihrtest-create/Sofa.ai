@@ -3,6 +3,7 @@ import {
   ArrowCounterClockwise,
   ArrowLeft,
   ArrowRight,
+  ArrowsOut,
   Camera,
   Check,
   ClockCounterClockwise,
@@ -20,14 +21,15 @@ import lightScene from "./assets/scene-light.png";
 import warmScene from "./assets/scene-warm.png";
 import ugcApartmentScene from "./assets/background-presets/ugc-apartment-window-main-iphone-clean.jpg";
 import ugcHerringboneScene from "./assets/background-presets/ugc-herringbone-living-main-iphone-clean.jpg";
-import cameraHero from "./assets/camera-previews/tile-00-hero.jpg";
-import cameraFront from "./assets/camera-previews/tile-01-front.jpg";
-import cameraDepth from "./assets/camera-previews/tile-02-depth.jpg";
-import cameraDetail from "./assets/camera-previews/tile-03-detail.jpg";
-import cameraElevated from "./assets/camera-previews/tile-04-elevated.jpg";
-import cameraRoom from "./assets/camera-previews/tile-05-room.jpg";
+import cameraHero from "./assets/camera-previews/tile-00-hero-schematic.jpg";
+import cameraFront from "./assets/camera-previews/tile-01-front-schematic.jpg";
+import cameraDepth from "./assets/camera-previews/tile-02-depth-schematic.jpg";
+import cameraDetail from "./assets/camera-previews/tile-03-detail-schematic.jpg";
+import cameraElevated from "./assets/camera-previews/tile-04-elevated-schematic.jpg";
+import cameraRoom from "./assets/camera-previews/tile-05-room-schematic.jpg";
 import { apiUrl } from "./api.js";
 import { DEFAULT_GENERATION_MODEL_ID, GENERATION_MODELS } from "../shared/generationModels.js";
+import { DEFAULT_IMAGE_FORMAT_ID, IMAGE_FORMATS, findImageFormat } from "../shared/imageFormats.js";
 import {
   clearSingleShotGenerations,
   deleteSingleShotGeneration,
@@ -40,6 +42,16 @@ const MAX_FILES = 6;
 const MAX_FILE_SIZE = 18 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 50 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const GENERATION_PHRASES = [
+  "Выставляем ракурс",
+  "Ставим мягкий свет",
+  "Сверяем форму дивана",
+  "Проверяем ножки и швы",
+  "Оставляем воздух в кадре",
+  "Настраиваем объектив",
+  "Ждём фотографа",
+  "Проявляем фактуру ткани",
+];
 
 const scenes = [
   { id: "auto", name: "Подобрать фон", image: heroSofa, auto: true },
@@ -74,6 +86,7 @@ export function SingleShotApp() {
   const [sceneId, setSceneId] = useState("ugcHerringboneLiving");
   const [cameraId, setCameraId] = useState("hero");
   const [modelId, setModelId] = useState(DEFAULT_GENERATION_MODEL_ID);
+  const [formatId, setFormatId] = useState(DEFAULT_IMAGE_FORMAT_ID);
   const [status, setStatus] = useState(demoMode ? "done" : "idle");
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
@@ -82,6 +95,8 @@ export function SingleShotApp() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [revisionNote, setRevisionNote] = useState("");
+  const [generationPhraseIndex, setGenerationPhraseIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [mobileStep, setMobileStep] = useState(demoMode ? 3 : 1);
   const [result, setResult] = useState(demoMode ? {
     dataUrl: heroSofa,
@@ -90,6 +105,7 @@ export function SingleShotApp() {
     sceneId: "ugcHerringboneLiving",
     modelId: DEFAULT_GENERATION_MODEL_ID,
     modelName: "GPT Image 2",
+    format: { id: "landscape", label: "Горизонтальная", ratio: "16:9" },
     cost: { usd: 0.0719, display: "$0.0719" },
   } : null);
   const inputRef = useRef(null);
@@ -119,8 +135,16 @@ export function SingleShotApp() {
   useEffect(() => {
     if (status !== "generating") return undefined;
     setElapsed(0);
+    setGenerationPhraseIndex(0);
     const timer = window.setInterval(() => setElapsed((value) => value + 1), 1_000);
-    return () => window.clearInterval(timer);
+    const phraseTimer = window.setInterval(
+      () => setGenerationPhraseIndex((value) => (value + 1) % GENERATION_PHRASES.length),
+      2_700,
+    );
+    return () => {
+      window.clearInterval(timer);
+      window.clearInterval(phraseTimer);
+    };
   }, [status]);
 
   useEffect(() => {
@@ -128,6 +152,7 @@ export function SingleShotApp() {
       if (event.key !== "Escape") return;
       setDialog(null);
       setHistoryOpen(false);
+      setLightboxOpen(false);
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
@@ -140,6 +165,7 @@ export function SingleShotApp() {
   const selectedScene = scenes.find((item) => item.id === sceneId) ?? scenes[0];
   const selectedCamera = cameras.find((item) => item.id === cameraId) ?? cameras[0];
   const selectedModel = GENERATION_MODELS.find((item) => item.id === modelId) ?? GENERATION_MODELS[0];
+  const selectedFormat = findImageFormat(formatId) ?? IMAGE_FORMATS[0];
   const historySummary = useMemo(() => summarizeSingleShotHistory(history), [history]);
 
   function clearRestoredResultUrl() {
@@ -195,6 +221,12 @@ export function SingleShotApp() {
     resetResult();
   }
 
+  function selectFormat(nextFormatId) {
+    if (status === "generating") return;
+    setFormatId(nextFormatId);
+    resetResult();
+  }
+
   async function refreshHistory() {
     setHistory(await listSingleShotGenerations());
   }
@@ -219,6 +251,8 @@ export function SingleShotApp() {
         cameraLabel: data.camera?.label ?? selectedCamera.label,
         modelId: snapshot.modelId,
         modelName: data.modelName ?? selectedModel.label,
+        formatId: snapshot.formatId,
+        format: data.format ?? selectedFormat,
         revisionNote: note,
         cost: data.cost,
       };
@@ -246,12 +280,14 @@ export function SingleShotApp() {
       sceneId,
       cameraId,
       modelId,
+      formatId,
     };
     const body = new FormData();
     orderedFiles.forEach((file) => body.append("images", file));
     body.append("scene", sceneId);
     body.append("camera", cameraId);
     body.append("model", modelId);
+    body.append("format", formatId);
     if (note) body.append("revisionNote", note);
 
     try {
@@ -283,12 +319,12 @@ export function SingleShotApp() {
 
   function downloadResult() {
     if (!result?.dataUrl) return;
-    downloadUrl(result.dataUrl, `sofa-${result.camera?.id || cameraId}-${result.modelId || modelId}.jpg`);
+    downloadUrl(result.dataUrl, `sofa-${result.camera?.id || cameraId}-${result.format?.id || formatId}-${result.modelId || modelId}.jpg`);
   }
 
   function downloadHistoryItem(item) {
     const url = URL.createObjectURL(item.resultBlob);
-    downloadUrl(url, `sofa-${item.cameraId}-${item.modelId}.jpg`);
+    downloadUrl(url, `sofa-${item.cameraId}-${item.formatId || DEFAULT_IMAGE_FORMAT_ID}-${item.modelId}.jpg`);
     window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
   }
 
@@ -306,6 +342,7 @@ export function SingleShotApp() {
     setSceneId(item.sceneId);
     setCameraId(item.cameraId);
     setModelId(item.modelId);
+    setFormatId(item.formatId || DEFAULT_IMAGE_FORMAT_ID);
     setResult({
       dataUrl: url,
       camera: { id: item.cameraId, label: item.cameraLabel },
@@ -313,6 +350,7 @@ export function SingleShotApp() {
       sceneId: item.sceneId,
       modelId: item.modelId,
       modelName: item.modelName,
+      format: item.format ?? IMAGE_FORMATS[0],
       cost: item.cost,
     });
     setStatus("done");
@@ -473,8 +511,28 @@ export function SingleShotApp() {
               </div>
             </section>
 
+            <section className="single-control-section">
+              <SingleHeading number="4" title="Формат" />
+              <div className="single-format-picker" role="radiogroup" aria-label="Формат фотографии">
+                {IMAGE_FORMATS.map((format) => (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={formatId === format.id}
+                    className={formatId === format.id ? "selected" : ""}
+                    disabled={status === "generating"}
+                    key={format.id}
+                    onClick={() => selectFormat(format.id)}
+                  >
+                    <span className={`single-format-shape ${format.id}`} aria-hidden="true" />
+                    <span><strong>{format.label}</strong><small>{format.ratio}</small></span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
             <section className="single-control-section single-model-section">
-              <SingleHeading number="4" title="Модель" />
+              <SingleHeading number="5" title="Модель" />
               <div className="single-model-picker" role="radiogroup" aria-label="Модель генерации">
                 {GENERATION_MODELS.map((model) => (
                   <button
@@ -515,14 +573,23 @@ export function SingleShotApp() {
       <aside className={`single-shot-stage ${result ? "has-result" : ""}`} aria-live="polite">
         {result ? (
           <>
-            <img className="single-result-image" src={result.dataUrl} alt={`${result.camera?.label || selectedCamera.label}: результат`} />
+            <button
+              className="single-result-preview"
+              type="button"
+              style={{ "--result-ratio": findImageFormat(result.format?.id)?.cssRatio || selectedFormat.cssRatio }}
+              onClick={() => setLightboxOpen(true)}
+              aria-label="Открыть фотографию на весь экран"
+            >
+              <img className="single-result-image" src={result.dataUrl} alt={`${result.camera?.label || selectedCamera.label}: результат`} />
+              <span><ArrowsOut size={18} /> На весь экран</span>
+            </button>
             <div className="single-result-topline">
               <span>Один кадр</span>
               <strong>{result.camera?.label || selectedCamera.label}</strong>
             </div>
             <div className="single-result-bar">
               <div>
-                <small>{result.scene} · {result.modelName || selectedModel.shortLabel}</small>
+                <small>{result.scene} · {result.format?.label || selectedFormat.label} {result.format?.ratio || selectedFormat.ratio} · {result.modelName || selectedModel.shortLabel}</small>
                 <strong>{result.cost?.display || "Стоимость недоступна"}</strong>
               </div>
               <div className="single-result-actions">
@@ -539,8 +606,8 @@ export function SingleShotApp() {
           <div className="single-stage-progress">
             <span className="single-progress-orbit"><Sparkle size={34} weight="thin" /></span>
             <p>Генерируется выбранный кадр</p>
-            <strong>{selectedCamera.label} · {selectedModel.shortLabel}</strong>
-            <small>{formatElapsed(elapsed)} · фон создаётся по текстовому описанию</small>
+            <strong key={generationPhraseIndex} className="single-progress-phrase">{GENERATION_PHRASES[generationPhraseIndex]}</strong>
+            <small>{selectedCamera.label} · {selectedFormat.ratio} · {selectedModel.shortLabel} · {formatElapsed(elapsed)}</small>
           </div>
         ) : (
           <div className="single-stage-empty">
@@ -582,7 +649,7 @@ export function SingleShotApp() {
                   <span>
                     <small>{dateFormatter.format(new Date(item.createdAt))}</small>
                     <strong>{item.cameraLabel} · {item.scene}</strong>
-                    <em>{item.modelName} · {item.cost?.display || "$0.0000"}</em>
+                    <em>{item.format?.label || "Горизонтальная"} {item.format?.ratio || "16:9"} · {item.modelName} · {item.cost?.display || "$0.0000"}</em>
                   </span>
                 </button>
                 <div>
@@ -636,6 +703,17 @@ export function SingleShotApp() {
               <button type="button" onClick={clearHistory}>Удалить всё</button>
             </div>
           </section>
+        </div>
+      )}
+
+      {lightboxOpen && result?.dataUrl && (
+        <div className="single-lightbox" role="dialog" aria-modal="true" aria-label="Полноэкранный просмотр фотографии">
+          <button type="button" className="single-lightbox-close" aria-label="Закрыть полноэкранный просмотр" onClick={() => setLightboxOpen(false)}><X size={24} /></button>
+          <img src={result.dataUrl} alt={`${result.camera?.label || selectedCamera.label}: полноэкранный результат`} />
+          <div>
+            <span>{result.camera?.label || selectedCamera.label} · {result.format?.label || selectedFormat.label} {result.format?.ratio || selectedFormat.ratio}</span>
+            <button type="button" onClick={downloadResult}><DownloadSimple size={19} /> Скачать</button>
+          </div>
         </div>
       )}
     </main>
