@@ -30,11 +30,6 @@ jobs:
       - name: Install dependencies
         run: npm ci --include=optional
 
-      # Vite uses Rollup's platform-specific native binary. Install the Linux
-      # variant explicitly to avoid npm omitting an optional dependency on CI.
-      - name: Prepare Rollup for Linux
-        run: npm install --no-save --no-package-lock @rollup/rollup-linux-x64-gnu@4.62.2
-
       - name: Build static site
         run: npm run build:pages
 

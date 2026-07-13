@@ -20,12 +20,12 @@ import lightScene from "./assets/scene-light.png";
 import warmScene from "./assets/scene-warm.png";
 import ugcApartmentScene from "./assets/background-presets/ugc-apartment-window-main-iphone-clean.jpg";
 import ugcHerringboneScene from "./assets/background-presets/ugc-herringbone-living-main-iphone-clean.jpg";
-import cameraHero from "../qa/generation/2026-06-26T12-08-06-396Z/images/tile-00-hero.jpg";
-import cameraFront from "../qa/generation/2026-06-26T12-08-06-396Z/images/tile-01-front.jpg";
-import cameraDepth from "../qa/generation/2026-06-26T12-08-06-396Z/images/tile-02-depth.jpg";
-import cameraDetail from "../qa/generation/2026-06-26T12-08-06-396Z/images/tile-03-detail.jpg";
-import cameraElevated from "../qa/generation/2026-06-26T12-08-06-396Z/images/tile-04-elevated.jpg";
-import cameraRoom from "../qa/generation/2026-06-26T12-08-06-396Z/images/tile-05-room.jpg";
+import cameraHero from "./assets/camera-previews/tile-00-hero.jpg";
+import cameraFront from "./assets/camera-previews/tile-01-front.jpg";
+import cameraDepth from "./assets/camera-previews/tile-02-depth.jpg";
+import cameraDetail from "./assets/camera-previews/tile-03-detail.jpg";
+import cameraElevated from "./assets/camera-previews/tile-04-elevated.jpg";
+import cameraRoom from "./assets/camera-previews/tile-05-room.jpg";
 import { DEFAULT_GENERATION_MODEL_ID, GENERATION_MODELS } from "../shared/generationModels.js";
 import {
   clearSingleShotGenerations,
