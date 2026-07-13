@@ -26,6 +26,7 @@ import cameraDepth from "./assets/camera-previews/tile-02-depth.jpg";
 import cameraDetail from "./assets/camera-previews/tile-03-detail.jpg";
 import cameraElevated from "./assets/camera-previews/tile-04-elevated.jpg";
 import cameraRoom from "./assets/camera-previews/tile-05-room.jpg";
+import { apiUrl } from "./api.js";
 import { DEFAULT_GENERATION_MODEL_ID, GENERATION_MODELS } from "../shared/generationModels.js";
 import {
   clearSingleShotGenerations,
@@ -254,7 +255,7 @@ export function SingleShotApp() {
     if (note) body.append("revisionNote", note);
 
     try {
-      const response = await fetch("/api/generate-frame", { method: "POST", body });
+      const response = await fetch(apiUrl("/api/generate-frame"), { method: "POST", body });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Модель не завершила выбранный кадр.");
       setResult(data);

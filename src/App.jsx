@@ -24,6 +24,7 @@ import ugcApartmentScene from "./assets/background-presets/ugc-apartment-window-
 import ugcHerringboneScene from "./assets/background-presets/ugc-herringbone-living-main-iphone-clean.jpg";
 import { fabricPresets } from "./fabricPresets.js";
 import { DEFAULT_GENERATION_MODEL_ID, GENERATION_MODELS } from "../shared/generationModels.js";
+import { apiUrl } from "./api.js";
 import { SHOT_SETS, getShotSet } from "../shared/shotSets.js";
 
 const MAX_FILES = 6;
@@ -153,7 +154,7 @@ export function App() {
     let cancelled = false;
     const poll = async () => {
       try {
-        const response = await fetch(`/api/reupholster/jobs/${fabricJob.id}`);
+        const response = await fetch(apiUrl(`/api/reupholster/jobs/${fabricJob.id}`));
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Не удалось обновить статус задания.");
         if (cancelled) return;
@@ -219,7 +220,7 @@ export function App() {
     body.append("model", generationModelId);
 
     try {
-      const response = await fetch("/api/generate", { method: "POST", body });
+      const response = await fetch(apiUrl("/api/generate"), { method: "POST", body });
       await handleGenerationResponse(response, "Генерация не завершилась.");
     } catch (generationError) {
       setError(generationError.message);
@@ -250,7 +251,7 @@ export function App() {
     );
 
     try {
-      const response = await fetch("/api/finalize-preview", { method: "POST", body });
+      const response = await fetch(apiUrl("/api/finalize-preview"), { method: "POST", body });
       await handleGenerationResponse(response, "Улучшение превью не завершилось.");
     } catch (finalizeError) {
       setError(finalizeError.message);
@@ -333,7 +334,7 @@ export function App() {
     body.append("model", generationModelId);
 
     try {
-      const response = await fetch("/api/contact-sheet", { method: "POST", body });
+      const response = await fetch(apiUrl("/api/contact-sheet"), { method: "POST", body });
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(formatPreviewError(data));
@@ -352,7 +353,7 @@ export function App() {
     setQaStatus("saving");
     setStoryboardError("");
     try {
-      const response = await fetch("/api/qa-export", {
+      const response = await fetch(apiUrl("/api/qa-export"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -409,7 +410,7 @@ export function App() {
     setFabricError("");
     const body = await buildFabricForm(images, "sync");
     try {
-      const response = await fetch("/api/reupholster", { method: "POST", body });
+      const response = await fetch(apiUrl("/api/reupholster"), { method: "POST", body });
       const contentType = response.headers.get("content-type") || "";
       if (!response.ok || !contentType.includes("application/x-ndjson")) {
         const data = await response.json();
@@ -438,7 +439,7 @@ export function App() {
     setFabricStatus("queueing");
     setFabricError("");
     try {
-      const response = await fetch("/api/reupholster", {
+      const response = await fetch(apiUrl("/api/reupholster"), {
         method: "POST",
         body: await buildFabricForm(images, "batch"),
       });
